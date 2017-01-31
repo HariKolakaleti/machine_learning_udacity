@@ -1,0 +1,10 @@
+while [ 1 ]
+do
+   sleep 3
+   echo "-------------------";
+   grep -i Trial abc | tail; 
+   echo "-------------------";
+   grep -i Trial abc |grep -i completed  | wc -l;
+   grep epsilon abc | tail -1
+done
+
