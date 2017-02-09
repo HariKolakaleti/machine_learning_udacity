@@ -52,11 +52,11 @@ for i in range(5):
     
 my_data = np.expand_dims(my_data, axis=3)
 
-my_labels[0,:] = [0,9,10,10,10,10]
-my_labels[1,:] = [0,2,3,10,10,10]
-my_labels[2,:] = [0,1,3,5,10,10]
-my_labels[3,:] = [0,8,2,0,9,10]
-my_labels[4,:] = [0,1,0,1,4,5]
+my_labels[0,:] = [0,6,10,10,10,10]
+my_labels[1,:] = [0,1,6,10,10,10]
+my_labels[2,:] = [0,8,2,7,10,10]
+my_labels[3,:] = [0,3,1,0,4,10]
+my_labels[4,:] = [0,1,8,7,9,0]
 
 def display_samples(data, labels, idx):
     print labels[idx]
