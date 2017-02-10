@@ -283,15 +283,15 @@ def generate_dataset(data, folder):
 
 print('Generating training dataset and labels...')
 train_dataset, train_dataset_orig, train_labels, train_bboxes = generate_dataset(train_data, svhn_train_folder)
-print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset.shape, train_dataset_orig.shape, train_labels.shape, train_bboxes.shape))
+print('Success! \n Training set: {} \n Training orig set: {} \n Training labels: {} \n Training bboxes: {}'.format(train_dataset.shape, train_dataset_orig.shape, train_labels.shape, train_bboxes.shape))
 
 print('Generating testing dataset and labels...')
 test_dataset, test_dataset_orig, test_labels, test_bboxes = generate_dataset(test_data, svhn_test_folder)
-print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_dataset_orig.shape, test_labels.shape, test_bboxes.shape))
+print('Success! \n Test set: {} \n Test orig set: {} \n Test labels: {} \n Test bboxes: {}'.format(test_dataset.shape, test_dataset_orig.shape, test_labels.shape, test_bboxes.shape))
 
 print('Generating extra dataset and labels...')
 extra_dataset, extra_dataset_orig, extra_labels, extra_bboxes = generate_dataset(extra_data, svhn_extra_folder)
-print('Success! \n Testing set: {} \n Testing labels: {}'.format(extra_dataset.shape, extra_dataset_orig.shape, extra_labels.shape, extra_bboxes.shape))
+print('Success! \n Extra set: {} \n Extra orig set: {} \n Extra labels: {} \n Extra bboxes: {}'.format(extra_dataset.shape, extra_dataset_orig.shape, extra_labels.shape, extra_bboxes.shape))
 
 # Clean up data by deleting digits more than 5 (very few)
 print('Cleaning up training data...')

@@ -62,6 +62,7 @@ if mnist_en:
     num_tests  = 10000
     img_width  = 140
     img_height = 28
+    predict_bbox = 0
     session_name = 'session/digit_recognizer.ckpt'
 elif svhn_en or mydata_en:
     num_steps  = 60000
@@ -69,6 +70,7 @@ elif svhn_en or mydata_en:
     num_tests  = 13068
     img_width  = 32
     img_height = 32
+    predict_bbox = 1
     localized_data = 1
     session_name = 'session/digit_recognizer.ckpt'
 
@@ -121,13 +123,14 @@ elif svhn_en:
             X_val_samples   = save['valid_dataset_orig']
             X_test_samples  = save['test_dataset_orig']
             
-        train_bboxes = save['train_bboxes']
-        valid_bboxes = save['valid_bboxes']
-        test_bboxes = save['test_bboxes']
-
-        y_train_samples = save['train_labels']
-        y_val_samples   = save['valid_labels']
-        y_test_samples  = save['test_labels']        
+        if predict_bbox:
+            y_train_samples = save['train_bboxes']
+            y_val_samples = save['valid_bboxes']
+            y_test_samples = save['test_bboxes']
+        else:
+            y_train_samples = save['train_labels']
+            y_val_samples   = save['valid_labels']
+            y_test_samples  = save['test_labels']        
         
         del save  
         print 'Training data shape: ', X_train_samples.shape
@@ -354,12 +357,15 @@ with graph.as_default():
             reshape = tf.reshape(d1_out, [shape[0], shape[1] * shape[2] * shape[3]])
             fc_out  = tf.nn.relu(tf.matmul(reshape, W_FC) + b_FC)
         
-        with tf.name_scope('softmax'):                
+        with tf.name_scope('fully_connected'):                
             y1 = tf.matmul(fc_out, W_Y1) + b_Y1
             y2 = tf.matmul(fc_out, W_Y2) + b_Y2
             y3 = tf.matmul(fc_out, W_Y3) + b_Y3
             y4 = tf.matmul(fc_out, W_Y4) + b_Y4
-            y5 = tf.matmul(fc_out, W_Y5) + b_Y5
+            if predict_bbox:
+                y5 = 0
+            else:
+                y5 = tf.matmul(fc_out, W_Y5) + b_Y5
 
         return [y1, y2, y3, y4, y5]
 
@@ -367,12 +373,20 @@ with graph.as_default():
     [y1, y2, y3, y4, y5] = model(X, keep_prob)
 
     with tf.name_scope("cross_entropy"):        
-        cross_entropy = \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
+        if prdict_bbox:
+            # regression loss
+            cross_entropy =  \
+                             tf.reduce_mean(tf.square(y1 - Y[:,1])) +\
+                             tf.reduce_mean(tf.square(y2 - Y[:,2])) +\
+                             tf.reduce_mean(tf.square(y3 - Y[:,3])) +\
+                             tf.reduce_mean(tf.square(y4 - Y[:,4]))
+        else:
+            cross_entropy = \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
         tf.summary.scalar("cross_entropy", cross_entropy)
 
     # Optimizer
@@ -380,18 +394,25 @@ with graph.as_default():
     learn = tf.train.exponential_decay(alpha, learn_step, 10000, 0.96)
     optimizer = tf.train.AdagradOptimizer(learn).minimize(cross_entropy, global_step=learn_step)
 
-    def softmax_combine(data):
-        y = tf.pack([
-            tf.nn.softmax(model(data, 1.0)[0]),
-            tf.nn.softmax(model(data, 1.0)[1]),
-            tf.nn.softmax(model(data, 1.0)[2]),
-            tf.nn.softmax(model(data, 1.0)[3]),
-            tf.nn.softmax(model(data, 1.0)[4])])
+    def output_combine(data):
+        if predict_bbox:
+            y = tf.pack([model(data, 1.0)[0],
+                         model(data, 1.0)[1],
+                         model(data, 1.0)[2],
+                         model(data, 1.0)[3],
+                         model(data, 1.0)[4]])
+        else:
+            y = tf.pack([
+                tf.nn.softmax(model(data, 1.0)[0]),
+                tf.nn.softmax(model(data, 1.0)[1]),
+                tf.nn.softmax(model(data, 1.0)[2]),
+                tf.nn.softmax(model(data, 1.0)[3]),
+                tf.nn.softmax(model(data, 1.0)[4])])
         return y
 
-    y_pred      = softmax_combine(X)
-    y_val_pred  = softmax_combine(X_val)
-    y_test_pred = softmax_combine(X_test)
+    y_pred      = output_combine(X)
+    y_val_pred  = output_combine(X_val)
+    y_test_pred = output_combine(X_test)
         
     # Save
     saver = tf.train.Saver()
