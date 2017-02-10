@@ -55,6 +55,7 @@ svhn_en   = 0
 mnist_en  = 0
 mydata_en = 1
 restore_session = 1
+visualization_en = 1
 
 if mnist_en:
     num_steps  = 7125
@@ -321,6 +322,7 @@ with graph.as_default():
         
     # CNN Model
     def model(data, keep_prob):
+        global v_r1_out, v_r2_out, v_r3_out
         with tf.name_scope('layer_1'):
             c1_out = tf.nn.conv2d(data, W_C1, c1_stride, padding=c1_padding)
             r1_out = tf.nn.relu(c1_out + b_C1)
@@ -348,6 +350,11 @@ with graph.as_default():
             y4 = tf.matmul(fc_out, W_Y4) + b_Y4
             y5 = tf.matmul(fc_out, W_Y5) + b_Y5
 
+        if visualization_en:
+            v_r1_out = r1_out
+            v_r2_out = r2_out
+            v_r3_out = r3_out
+            
         return [y1, y2, y3, y4, y5]
 
     # Loss function: cross_entropy 
@@ -379,7 +386,7 @@ with graph.as_default():
     y_pred      = softmax_combine(X)
     y_val_pred  = softmax_combine(X_val)
     y_test_pred = softmax_combine(X_test)
-
+        
     # Save
     saver = tf.train.Saver()
 
@@ -407,14 +414,32 @@ with graph.as_default():
     print('Graph done!')
 
 #%%
-
+        
 def accuracy(predictions, labels, debug=0):
     if debug:
         for i in range(labels.shape[0]):
-            print 'Test i:', np.argmax(predictions, 2).T[i], labels[i]
+            print 'Test ',i+1,':', np.argmax(predictions, 2).T[i], labels[i]
 
     return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
              / predictions.shape[1] / predictions.shape[0])
+
+def visualize_data():
+    #grab only the first element of the batch and 16 filters
+    layer1_image1 = v_r1_out[0:1, :, :, 0:16]
+    #layer2_image1 = v_r2_out[0:1, :, :, 0:16]
+    #layer3_image1 = v_r3_out[0:1, :, :, 0:16]
+    
+    layer1_image1 = tf.transpose(layer1_image1, perm=[3,1,2,0])
+    #layer2_image1 = tf.transpose(layer2_image1, perm=[3,1,2,0])
+    #layer3_image1 = tf.transpose(layer3_image1, perm=[3,1,2,0])
+
+    #layer_combine_1 = tf.concat(2, [layer3_image1, layer2_image1, layer1_image1])    
+    list_lc1 = tf.split(0, 16, layer1_image1)
+    #list_lc1 = tf.split(0, 16, layer_combine_1)
+    layer_combine_1 = tf.concat(1, list_lc1)
+
+    tf.summary.image("filtered_images_1", layer_combine_1)
+    # combine this summary with tensorboard (and you get a decent output);
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
@@ -443,6 +468,8 @@ with tf.Session(graph=graph) as sess:
     if restore_session:
         print('Restoring session: ', session_name)
         saver.restore(sess, session_name)
+        if visualization_en:
+            visualize_data()
     else:
         # train loops
         print ('Start training: batch_size {} num_steps {}').format(batch_size, num_steps)

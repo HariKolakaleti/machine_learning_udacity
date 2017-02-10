@@ -5,6 +5,7 @@ img_height = 32
 
 # import modules
 
+import cv2
 import numpy as np
 import os
 import random
@@ -25,6 +26,11 @@ from PIL import Image
 
 orig_data = './my_data/orig/'
 
+bw_data = './my_data/bw/'
+if not os.path.isdir(bw_data):    
+    print ('Creating dir:', bw_data)
+    os.mkdir(bw_data)
+
 resize_data = './my_data/resize/'
 if not os.path.isdir(resize_data):    
     print ('Creating dir:', resize_data)
@@ -32,8 +38,17 @@ if not os.path.isdir(resize_data):
 
 for i in range(1, 6):
     rd_fname = orig_data + '{}.png'.format(i)
+    wr_fname = bw_data + '{}.png'.format(i)
+    img = cv2.imread(rd_fname)
+    img[img == 255] = 1
+    img[img == 0] = 255
+    img[img == 1] = 0
+    cv2.imwrite(wr_fname, img)
+    
+    rd_fname = bw_data + '{}.png'.format(i)
     wr_fname = resize_data + '{}.png'.format(i)
     img = Image.open(rd_fname)
+
     basewidth = 32
     wpercent = (basewidth / float(img.size[0]))
     hsize = int((float(img.size[1]) * float(wpercent)))
@@ -52,11 +67,11 @@ for i in range(5):
     
 my_data = np.expand_dims(my_data, axis=3)
 
-my_labels[0,:] = [0,6,10,10,10,10]
-my_labels[1,:] = [0,1,6,10,10,10]
-my_labels[2,:] = [0,8,2,7,10,10]
-my_labels[3,:] = [0,3,1,0,4,10]
-my_labels[4,:] = [0,1,8,7,9,0]
+my_labels[0,:] = [0,9,10,10,10,10]
+my_labels[1,:] = [0,2,3,10,10,10]
+my_labels[2,:] = [0,1,3,5,10,10]
+my_labels[3,:] = [0,8,2,0,9,10]
+my_labels[4,:] = [0,1,1,0,4,5]
 
 def display_samples(data, labels, idx):
     print labels[idx]
@@ -89,6 +104,3 @@ except Exception as e:
 statinfo = os.stat(pickle_file)
 print('Success!')
 print('Compressed pickle size: {}'.format(statinfo.st_size))
-
-
-
