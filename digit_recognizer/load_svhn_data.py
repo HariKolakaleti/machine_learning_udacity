@@ -25,6 +25,8 @@ from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 from PIL import Image
 
+skip_download = 1
+skip_extract = 1
 np.random.seed(133)
 
 #%% 
@@ -81,10 +83,15 @@ def maybe_download(url, filename, expected_bytes, force=False):
       'Failed to verify ' + filename + '. Can you get to it with a browser?')
   return filename
 
-svhn_train_filename = maybe_download(svhn_url, 'train.tar.gz', 404141560)
-svhn_test_filename = maybe_download(svhn_url, 'test.tar.gz', 276555967)
-svhn_extra_filename = maybe_download(svhn_url, 'extra.tar.gz', 1955489752)
-
+if skip_download:
+    print('Skipping download ...')
+    svhn_train_filename = 'train.tar.gz'
+    svhn_test_filename = 'test.tar.gz'
+    svhn_extra_filename = 'extra.tar.gz'
+else:
+    svhn_train_filename = Maybe_download(svhn_url, 'train.tar.gz', 404141560)
+    svhn_test_filename = maybe_download(svhn_url, 'test.tar.gz', 276555967)
+    svhn_extra_filename = maybe_download(svhn_url, 'extra.tar.gz', 1955489752)
 
 def maybe_extract(filename, force=False):
   global svhn_data
@@ -100,9 +107,15 @@ def maybe_extract(filename, force=False):
     tar.close()
   return root
   
-svhn_train_folder = 'svhn_data/' + maybe_extract(svhn_train_filename)
-svhn_test_folder  = 'svhn_data/' + maybe_extract(svhn_test_filename)
-svhn_extra_folder = 'svhn_data/' + maybe_extract(svhn_extra_filename)
+if skip_extract:
+    print('Skipping extract ...')
+    svhn_train_folder = 'svhn_data/train'
+    svhn_test_folder  = 'svhn_data/test'
+    svhn_extra_folder = 'svhn_data/extra'
+else:
+    svhn_train_folder = 'svhn_data/' + maybe_extract(svhn_train_filename)
+    svhn_test_folder  = 'svhn_data/' + maybe_extract(svhn_test_filename)
+    svhn_extra_folder = 'svhn_data/' + maybe_extract(svhn_extra_filename)
 
 def display_samples(data_folder, num_samples=1):
     for i in range(num_samples):
@@ -230,7 +243,7 @@ def generate_dataset(data, folder):
     dataset = np.ndarray([len(data),32,32,1], dtype='float32')
     dataset_orig = np.ndarray([len(data),32,32,1], dtype='float32')
     labels = np.ones([len(data),6], dtype=int) * 10
-    bboxes = np.zeros([len(data),4], dtype='float32')
+    bboxes = np.zeros([len(data),6], dtype='float32')
     for i in np.arange(len(data)):
         filename = data[i]['filename']
         fullname = os.path.join(folder, filename)
@@ -261,10 +274,11 @@ def generate_dataset(data, folder):
         im_left = int(np.floor(im_left - 0.1 * im_width))
         im_bottom = int(np.amin([np.ceil(im_top + 1.2 * im_height), im.size[1]]))
         im_right = int(np.amin([np.ceil(im_left + 1.2 * im_width), im.size[0]]))
-        bboxes[i,:] = [im_top, im_left, im_bottom, im_right]
+        bboxes[i,:] = [0, im_top, im_left, im_bottom, im_right, 0]
 
         im_orig = im
         im_orig = im_orig.resize((32, 32), Image.ANTIALIAS)        
+        im_orig = np.dot(np.array(im_orig, dtype='float32'), [[0.2989],[0.5870],[0.1140]])
         mean = np.mean(im_orig, dtype='float32')
         std = np.std(im_orig, dtype='float32', ddof=1)
         if std < 1e-4: std = 1.

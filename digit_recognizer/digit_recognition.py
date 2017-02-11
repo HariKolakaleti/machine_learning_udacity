@@ -51,10 +51,10 @@ SVHN MODEL:
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 0
+svhn_en   = 1
 mnist_en  = 0
-mydata_en = 1
-restore_session = 1
+mydata_en = 0
+restore_session = 0
 
 if mnist_en:
     num_steps  = 7125
@@ -74,9 +74,15 @@ elif svhn_en or mydata_en:
     localized_data = 1
     session_name = 'session/digit_recognizer.ckpt'
 
+    if predict_bbox:
+        string = 'MeanSqError'
+    else:
+        string = 'accuracy' 
+
 if mydata_en:
     restore_session = 1 
 
+import math
 import pickle
 import random
 import numpy as np
@@ -97,8 +103,8 @@ if mnist_en:
         y_train_samples = save['m_train_labels']
         X_val_samples   = save['m_val_samples']
         y_val_samples   = save['m_val_labels']
-        X_test_samples  = save['m_test_samples'][:4000,]
-        y_test_samples  = save['m_test_labels'][:4000,]
+        X_test_samples  = save['m_test_samples']
+        y_test_samples  = save['m_test_labels']
         del save  
         print 'Training data shape: ', X_train_samples.shape
         print 'Training label shape:', y_train_samples.shape
@@ -125,8 +131,8 @@ elif svhn_en:
             
         if predict_bbox:
             y_train_samples = save['train_bboxes']
-            y_val_samples = save['valid_bboxes']
-            y_test_samples = save['test_bboxes']
+            y_val_samples   = save['valid_bboxes']
+            y_test_samples  = save['test_bboxes']
         else:
             y_train_samples = save['train_labels']
             y_val_samples   = save['valid_labels']
@@ -264,7 +270,10 @@ elif svhn_en or mydata_en:
 
     # output
     out_digits = 6         # up to 5 digits [1-5]
-    out_labels = 11        # detect 0-9 & none
+    if predict_bbox:
+        out_labels = 1     # regression (sigle value)
+    else:
+        out_labels = 11    # detect 0-9 & none
 
 
 graph = tf.Graph()
@@ -275,18 +284,28 @@ with graph.as_default():
     X_val  = tf.constant(X_val_samples)
     X_test = tf.constant(X_test_samples)
 
-    Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
+    if predict_bbox:
+        Y = tf.placeholder(tf.float32, shape=(batch_size, out_digits))
+    else:
+        Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
+        
     X = tf.placeholder(tf.float32, shape=(batch_size, img_height, img_width, in_chan))
 
     # weights & biases
 
     def init_bias(name, shape):
-        initializer = tf.contrib.layers.xavier_initializer()
-        return tf.get_variable(shape=shape, name=name, initializer=initializer)
+        if predict_bbox and name == 'b_Y5':
+            return tf.get_variable(name=name, initializer=tf.zeros(shape=shape))
+        else:
+            initializer = tf.contrib.layers.xavier_initializer()
+            return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
     def init_weight(name, shape):
-        initializer = tf.contrib.layers.xavier_initializer_conv2d()
-        return tf.get_variable(shape=shape, name=name, initializer=initializer)
+        if predict_bbox and name == 'W_Y5':
+            return tf.get_variable(name=name, initializer=tf.zeros(shape=shape))
+        else:
+            initializer = tf.contrib.layers.xavier_initializer_conv2d()
+            return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
     # pool_out = [(width or height) - patch]/(stride) + 1 
     # conv_out = [(width or height) - patch + 2 * pad]/(stride) + 1 
@@ -334,7 +353,7 @@ with graph.as_default():
     W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
     W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
-        
+
     # CNN Model
     def model(data, keep_prob):
         with tf.name_scope('layer_1'):
@@ -362,10 +381,7 @@ with graph.as_default():
             y2 = tf.matmul(fc_out, W_Y2) + b_Y2
             y3 = tf.matmul(fc_out, W_Y3) + b_Y3
             y4 = tf.matmul(fc_out, W_Y4) + b_Y4
-            if predict_bbox:
-                y5 = 0
-            else:
-                y5 = tf.matmul(fc_out, W_Y5) + b_Y5
+            y5 = tf.matmul(fc_out, W_Y5) + b_Y5
 
         return [y1, y2, y3, y4, y5]
 
@@ -373,7 +389,7 @@ with graph.as_default():
     [y1, y2, y3, y4, y5] = model(X, keep_prob)
 
     with tf.name_scope("cross_entropy"):        
-        if prdict_bbox:
+        if predict_bbox:
             # regression loss
             cross_entropy =  \
                              tf.reduce_mean(tf.square(y1 - Y[:,1])) +\
@@ -396,11 +412,7 @@ with graph.as_default():
 
     def output_combine(data):
         if predict_bbox:
-            y = tf.pack([model(data, 1.0)[0],
-                         model(data, 1.0)[1],
-                         model(data, 1.0)[2],
-                         model(data, 1.0)[3],
-                         model(data, 1.0)[4]])
+            y = tf.squeeze(tf.pack([model(data, 1.0)]))
         else:
             y = tf.pack([
                 tf.nn.softmax(model(data, 1.0)[0]),
@@ -445,10 +457,17 @@ with graph.as_default():
 def accuracy(predictions, labels, debug=0):
     if debug:
         for i in range(labels.shape[0]):
-            print 'Test ',i+1,':', np.argmax(predictions, 2).T[i], labels[i]
+            if predict_bbox:
+                np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
+                print 'Test ',i+1,':', predictions.T[i,0:4], labels[i,0:4]
+            else:
+                print 'Test ',i+1,':', np.argmax(predictions, 2).T[i], labels[i]
 
-    return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
-             / predictions.shape[1] / predictions.shape[0])
+    if predict_bbox:
+        return ((predictions.T[:,0:3] - labels[:,0:3]) ** 2).mean(axis=None)
+    else:
+        return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
+                / predictions.shape[1] / predictions.shape[0])
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
@@ -466,8 +485,8 @@ def model_loop(X_samples, y_samples, num_steps=1, debug=0):
         writer.add_summary(summary)
 
         if (step % 250 == 0):
-            print (('step {}: loss -> {} accuracy -> {}%').format(step, round(loss,2), accuracy(pred, batch_Y[:,1:6], debug=debug)))
-            print (('Validation accuracy: {}%'.format(round(accuracy(y_val_pred.eval(), y_val_samples[:,1:6], debug=debug), 2))))
+            print (('step {}: loss -> {} {} -> {}').format(step, round(loss,2), string, accuracy(pred, batch_Y[:,1:6], debug=debug),))
+            print (('Validation {}: {}'.format(string, round(accuracy(y_val_pred.eval(), y_val_samples[:,1:6], debug=debug), 2))))
 
 with tf.Session(graph=graph) as sess:
     writer = tf.summary.FileWriter("log", sess.graph)
@@ -484,7 +503,7 @@ with tf.Session(graph=graph) as sess:
 
     # test accuracy
     print ('Start Testing: num_tests {}').format(num_tests)
-    print (('Test accuracy: {}%'.format(accuracy(y_test_pred.eval(), y_test_samples[:,1:6], debug=debug))))
+    print (('Test {}: {}'.format(string, accuracy(y_test_pred.eval(), y_test_samples[:,1:6], debug=debug))))
 
     # save session
     save_path = saver.save(sess, "session/digit_recognizer.ckpt")
