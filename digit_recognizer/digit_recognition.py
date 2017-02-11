@@ -51,9 +51,9 @@ SVHN MODEL:
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 1
+svhn_en   = 0
 mnist_en  = 0
-mydata_en = 0
+mydata_en = 1
 restore_session = 1
 
 if mnist_en:
@@ -70,7 +70,7 @@ elif svhn_en or mydata_en:
     num_tests  = 13068
     img_width  = 32
     img_height = 32
-    predict_bbox = 0
+    predict_bbox = 1
     localized_data = 0
 
     if predict_bbox:
@@ -161,11 +161,18 @@ elif mydata_en:
         save = pickle.load(f)
         # load same data to train/val for placeholders
         X_train_samples = save['my_data']
-        y_train_samples = save['my_labels']
         X_val_samples   = save['my_data']
-        y_val_samples   = save['my_labels']
         X_test_samples  = save['my_data']
-        y_test_samples  = save['my_labels']
+
+        if predict_bbox:
+            y_train_samples = save['my_bboxes']
+            y_val_samples   = save['my_bboxes']
+            y_test_samples  = save['my_bboxes']
+        else:
+            y_train_samples = save['my_labels']
+            y_val_samples   = save['my_labels']
+            y_test_samples  = save['my_labels']
+
         del save  
         print 'Test data shape:     ', X_test_samples.shape
         print 'Test label shape:    ', y_test_samples.shape

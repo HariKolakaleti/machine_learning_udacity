@@ -58,6 +58,7 @@ for i in range(1, 6):
 # load data
 
 my_labels = np.ndarray(shape=(5, 6), dtype=np.int32)
+my_bboxes = np.ndarray(shape=(5, 6), dtype=np.float32)
 my_data = np.ndarray(shape=(5, 32, 32), dtype=np.float32)
 
 for i in range(5):
@@ -67,11 +68,17 @@ for i in range(5):
     
 my_data = np.expand_dims(my_data, axis=3)
 
-my_labels[0,:] = [0,9,10,10,10,10]
-my_labels[1,:] = [0,2,3,10,10,10]
-my_labels[2,:] = [0,1,3,5,10,10]
-my_labels[3,:] = [0,8,2,0,9,10]
-my_labels[4,:] = [0,1,1,0,4,5]
+my_labels[0,:] = [0,5,10,10,10,10]
+my_labels[1,:] = [0,2,1,0,10,10]
+my_labels[2,:] = [0,6,10,10,10,10]
+my_labels[3,:] = [0,1,10,10,10,10]
+my_labels[4,:] = [0,1,1,10,10,10]
+
+my_bboxes[0,:] = [0,4,41,40,64,0]
+my_bboxes[1,:] = [0,2,95,34,136,0]
+my_bboxes[2,:] = [0,4,59,24,73,0]
+my_bboxes[3,:] = [0,4,30,25,47,0]
+my_bboxes[4,:] = [0,3,41,30,75,0]
 
 def display_samples(data, labels, idx):
     print labels[idx]
@@ -91,10 +98,11 @@ pickle_file = 'my_data/my_data.pickle'
 
 print 'Test samples: {}'.format(my_data.shape)
 print 'Test labels: {}'.format(my_labels.shape)
+print 'Test bboxes: {}'.format(my_bboxes.shape)
 
 try:
     f = open(pickle_file, 'wb')
-    save = {'my_data': my_data, 'my_labels': my_labels}
+    save = {'my_data': my_data, 'my_labels': my_labels, 'my_bboxes': my_bboxes}
     pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
     f.close()
 except Exception as e:
