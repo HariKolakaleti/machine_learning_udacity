@@ -54,7 +54,7 @@ idisplay  = 0
 svhn_en   = 1
 mnist_en  = 0
 mydata_en = 0
-restore_session = 0
+restore_session = 1
 
 if mnist_en:
     num_steps  = 7125
@@ -63,7 +63,7 @@ if mnist_en:
     img_width  = 140
     img_height = 28
     predict_bbox = 0
-    session_name = 'session/digit_recognizer.ckpt'
+    session_name = 'session/digit_recognizer.mnist.ckpt'
 elif svhn_en or mydata_en:
     num_steps  = 60000
     num_val    = 5684
@@ -71,13 +71,19 @@ elif svhn_en or mydata_en:
     img_width  = 32
     img_height = 32
     predict_bbox = 1
-    localized_data = 1
-    session_name = 'session/digit_recognizer.ckpt'
+    localized_data = 0
 
     if predict_bbox:
         string = 'MeanSqError'
     else:
         string = 'accuracy' 
+
+    if localized_data:
+        session_name = 'session/digit_recognizer.localized.ckpt'
+    elif predict_bbox:
+        session_name = 'session/digit_recognizer.bbox.ckpt'
+    else:
+        session_name = 'session/digit_recognizer.full_image.ckpt'
 
 if mydata_en:
     restore_session = 1 
