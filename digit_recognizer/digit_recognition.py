@@ -70,7 +70,7 @@ elif svhn_en or mydata_en:
     num_tests  = 13068
     img_width  = 32
     img_height = 32
-    predict_bbox = 1
+    predict_bbox = 0
     localized_data = 0
 
     if predict_bbox:
