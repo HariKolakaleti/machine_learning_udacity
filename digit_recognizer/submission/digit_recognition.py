@@ -51,10 +51,10 @@ SVHN MODEL:
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 1
+svhn_en   = 0
 mnist_en  = 0
-mydata_en = 0
-restore_session = 0
+mydata_en = 1
+restore_session = 1
 
 if mnist_en:
     num_steps  = 7125
@@ -62,18 +62,33 @@ if mnist_en:
     num_tests  = 10000
     img_width  = 140
     img_height = 28
-    session_name = 'save/session.mnist/digit_recognizer.ckpt'
+    predict_bbox = 0
+    session_name = 'session/digit_recognizer.mnist.ckpt'
 elif svhn_en or mydata_en:
     num_steps  = 60000
     num_val    = 5684
     num_tests  = 13068
     img_width  = 32
     img_height = 32
-    session_name = 'save/session.svhn/digit_recognizer.ckpt'
+    predict_bbox = 0
+    localized_data = 0
+
+    if predict_bbox:
+        string = 'MeanSqError'
+    else:
+        string = 'accuracy' 
+
+    if localized_data:
+        session_name = 'session/digit_recognizer.localized.ckpt'
+    elif predict_bbox:
+        session_name = 'session/digit_recognizer.bbox.ckpt'
+    else:
+        session_name = 'session/digit_recognizer.full_image.ckpt'
 
 if mydata_en:
     restore_session = 1 
 
+import math
 import pickle
 import random
 import numpy as np
@@ -94,8 +109,8 @@ if mnist_en:
         y_train_samples = save['m_train_labels']
         X_val_samples   = save['m_val_samples']
         y_val_samples   = save['m_val_labels']
-        X_test_samples  = save['m_test_samples'][:4000,]
-        y_test_samples  = save['m_test_labels'][:4000,]
+        X_test_samples  = save['m_test_samples']
+        y_test_samples  = save['m_test_labels']
         del save  
         print 'Training data shape: ', X_train_samples.shape
         print 'Training label shape:', y_train_samples.shape
@@ -110,12 +125,25 @@ elif svhn_en:
 
     with open(pickle_file, 'rb') as f:
         save = pickle.load(f)
-        X_train_samples = save['train_dataset']
-        y_train_samples = save['train_labels']
-        X_val_samples   = save['valid_dataset']
-        y_val_samples   = save['valid_labels']
-        X_test_samples  = save['test_dataset']
-        y_test_samples  = save['test_labels']
+
+        if localized_data:            
+            X_train_samples = save['train_dataset']
+            X_val_samples   = save['valid_dataset']
+            X_test_samples  = save['test_dataset']
+        else:
+            X_train_samples = save['train_dataset_orig']
+            X_val_samples   = save['valid_dataset_orig']
+            X_test_samples  = save['test_dataset_orig']
+            
+        if predict_bbox:
+            y_train_samples = save['train_bboxes']
+            y_val_samples   = save['valid_bboxes']
+            y_test_samples  = save['test_bboxes']
+        else:
+            y_train_samples = save['train_labels']
+            y_val_samples   = save['valid_labels']
+            y_test_samples  = save['test_labels']        
+        
         del save  
         print 'Training data shape: ', X_train_samples.shape
         print 'Training label shape:', y_train_samples.shape
@@ -133,11 +161,18 @@ elif mydata_en:
         save = pickle.load(f)
         # load same data to train/val for placeholders
         X_train_samples = save['my_data']
-        y_train_samples = save['my_labels']
         X_val_samples   = save['my_data']
-        y_val_samples   = save['my_labels']
         X_test_samples  = save['my_data']
-        y_test_samples  = save['my_labels']
+
+        if predict_bbox:
+            y_train_samples = save['my_bboxes']
+            y_val_samples   = save['my_bboxes']
+            y_test_samples  = save['my_bboxes']
+        else:
+            y_train_samples = save['my_labels']
+            y_val_samples   = save['my_labels']
+            y_test_samples  = save['my_labels']
+
         del save  
         print 'Test data shape:     ', X_test_samples.shape
         print 'Test label shape:    ', y_test_samples.shape
@@ -248,7 +283,10 @@ elif svhn_en or mydata_en:
 
     # output
     out_digits = 6         # up to 5 digits [1-5]
-    out_labels = 11        # detect 0-9 & none
+    if predict_bbox:
+        out_labels = 1     # regression (sigle value)
+    else:
+        out_labels = 11    # detect 0-9 & none
 
 
 graph = tf.Graph()
@@ -259,18 +297,28 @@ with graph.as_default():
     X_val  = tf.constant(X_val_samples)
     X_test = tf.constant(X_test_samples)
 
-    Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
+    if predict_bbox:
+        Y = tf.placeholder(tf.float32, shape=(batch_size, out_digits))
+    else:
+        Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
+        
     X = tf.placeholder(tf.float32, shape=(batch_size, img_height, img_width, in_chan))
 
     # weights & biases
 
     def init_bias(name, shape):
-        initializer = tf.contrib.layers.xavier_initializer()
-        return tf.get_variable(shape=shape, name=name, initializer=initializer)
+        if predict_bbox and name == 'b_Y5':
+            return tf.get_variable(name=name, initializer=tf.zeros(shape=shape))
+        else:
+            initializer = tf.contrib.layers.xavier_initializer()
+            return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
     def init_weight(name, shape):
-        initializer = tf.contrib.layers.xavier_initializer_conv2d()
-        return tf.get_variable(shape=shape, name=name, initializer=initializer)
+        if predict_bbox and name == 'W_Y5':
+            return tf.get_variable(name=name, initializer=tf.zeros(shape=shape))
+        else:
+            initializer = tf.contrib.layers.xavier_initializer_conv2d()
+            return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
     # pool_out = [(width or height) - patch]/(stride) + 1 
     # conv_out = [(width or height) - patch + 2 * pad]/(stride) + 1 
@@ -318,7 +366,7 @@ with graph.as_default():
     W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
     W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
-        
+
     # CNN Model
     def model(data, keep_prob):
         with tf.name_scope('layer_1'):
@@ -341,7 +389,7 @@ with graph.as_default():
             reshape = tf.reshape(d1_out, [shape[0], shape[1] * shape[2] * shape[3]])
             fc_out  = tf.nn.relu(tf.matmul(reshape, W_FC) + b_FC)
         
-        with tf.name_scope('softmax'):                
+        with tf.name_scope('fully_connected'):                
             y1 = tf.matmul(fc_out, W_Y1) + b_Y1
             y2 = tf.matmul(fc_out, W_Y2) + b_Y2
             y3 = tf.matmul(fc_out, W_Y3) + b_Y3
@@ -354,12 +402,20 @@ with graph.as_default():
     [y1, y2, y3, y4, y5] = model(X, keep_prob)
 
     with tf.name_scope("cross_entropy"):        
-        cross_entropy = \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
+        if predict_bbox:
+            # regression loss
+            cross_entropy =  \
+                             tf.reduce_mean(tf.square(y1 - Y[:,1])) +\
+                             tf.reduce_mean(tf.square(y2 - Y[:,2])) +\
+                             tf.reduce_mean(tf.square(y3 - Y[:,3])) +\
+                             tf.reduce_mean(tf.square(y4 - Y[:,4]))
+        else:
+            cross_entropy = \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
+                            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
         tf.summary.scalar("cross_entropy", cross_entropy)
 
     # Optimizer
@@ -367,19 +423,22 @@ with graph.as_default():
     learn = tf.train.exponential_decay(alpha, learn_step, 10000, 0.96)
     optimizer = tf.train.AdagradOptimizer(learn).minimize(cross_entropy, global_step=learn_step)
 
-    def softmax_combine(data):
-        y = tf.pack([
-            tf.nn.softmax(model(data, 1.0)[0]),
-            tf.nn.softmax(model(data, 1.0)[1]),
-            tf.nn.softmax(model(data, 1.0)[2]),
-            tf.nn.softmax(model(data, 1.0)[3]),
-            tf.nn.softmax(model(data, 1.0)[4])])
+    def output_combine(data):
+        if predict_bbox:
+            y = tf.squeeze(tf.pack([model(data, 1.0)]))
+        else:
+            y = tf.pack([
+                tf.nn.softmax(model(data, 1.0)[0]),
+                tf.nn.softmax(model(data, 1.0)[1]),
+                tf.nn.softmax(model(data, 1.0)[2]),
+                tf.nn.softmax(model(data, 1.0)[3]),
+                tf.nn.softmax(model(data, 1.0)[4])])
         return y
 
-    y_pred      = softmax_combine(X)
-    y_val_pred  = softmax_combine(X_val)
-    y_test_pred = softmax_combine(X_test)
-
+    y_pred      = output_combine(X)
+    y_val_pred  = output_combine(X_val)
+    y_test_pred = output_combine(X_test)
+        
     # Save
     saver = tf.train.Saver()
 
@@ -407,14 +466,21 @@ with graph.as_default():
     print('Graph done!')
 
 #%%
-
+        
 def accuracy(predictions, labels, debug=0):
     if debug:
         for i in range(labels.shape[0]):
-            print 'Test i:', np.argmax(predictions, 2).T[i], labels[i]
+            if predict_bbox:
+                np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
+                print 'Test ',i+1,':', predictions.T[i,0:4], labels[i,0:4]
+            else:
+                print 'Test ',i+1,':', np.argmax(predictions, 2).T[i], labels[i]
 
-    return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
-             / predictions.shape[1] / predictions.shape[0])
+    if predict_bbox:
+        return ((predictions.T[:,0:3] - labels[:,0:3]) ** 2).mean(axis=None)
+    else:
+        return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
+                / predictions.shape[1] / predictions.shape[0])
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
@@ -432,8 +498,8 @@ def model_loop(X_samples, y_samples, num_steps=1, debug=0):
         writer.add_summary(summary)
 
         if (step % 250 == 0):
-            print (('step {}: loss -> {} accuracy -> {}%').format(step, round(loss,2), accuracy(pred, batch_Y[:,1:6], debug=debug)))
-            print (('Validation accuracy: {}%'.format(round(accuracy(y_val_pred.eval(), y_val_samples[:,1:6], debug=debug), 2))))
+            print (('step {}: loss -> {} {} -> {}').format(step, round(loss,2), string, accuracy(pred, batch_Y[:,1:6], debug=debug),))
+            print (('Validation {}: {}'.format(string, round(accuracy(y_val_pred.eval(), y_val_samples[:,1:6], debug=debug), 2))))
 
 with tf.Session(graph=graph) as sess:
     writer = tf.summary.FileWriter("log", sess.graph)
@@ -450,7 +516,7 @@ with tf.Session(graph=graph) as sess:
 
     # test accuracy
     print ('Start Testing: num_tests {}').format(num_tests)
-    print (('Test accuracy: {}%'.format(accuracy(y_test_pred.eval(), y_test_samples[:,1:6], debug=debug))))
+    print (('Test {}: {}'.format(string, accuracy(y_test_pred.eval(), y_test_samples[:,1:6], debug=debug))))
 
     # save session
     save_path = saver.save(sess, "session/digit_recognizer.ckpt")

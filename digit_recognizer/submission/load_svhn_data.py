@@ -25,6 +25,8 @@ from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 from PIL import Image
 
+skip_download = 1
+skip_extract = 1
 np.random.seed(133)
 
 #%% 
@@ -81,10 +83,15 @@ def maybe_download(url, filename, expected_bytes, force=False):
       'Failed to verify ' + filename + '. Can you get to it with a browser?')
   return filename
 
-svhn_train_filename = maybe_download(svhn_url, 'train.tar.gz', 404141560)
-svhn_test_filename = maybe_download(svhn_url, 'test.tar.gz', 276555967)
-svhn_extra_filename = maybe_download(svhn_url, 'extra.tar.gz', 1955489752)
-
+if skip_download:
+    print('Skipping download ...')
+    svhn_train_filename = 'train.tar.gz'
+    svhn_test_filename = 'test.tar.gz'
+    svhn_extra_filename = 'extra.tar.gz'
+else:
+    svhn_train_filename = Maybe_download(svhn_url, 'train.tar.gz', 404141560)
+    svhn_test_filename = maybe_download(svhn_url, 'test.tar.gz', 276555967)
+    svhn_extra_filename = maybe_download(svhn_url, 'extra.tar.gz', 1955489752)
 
 def maybe_extract(filename, force=False):
   global svhn_data
@@ -100,9 +107,15 @@ def maybe_extract(filename, force=False):
     tar.close()
   return root
   
-svhn_train_folder = 'svhn_data/' + maybe_extract(svhn_train_filename)
-svhn_test_folder  = 'svhn_data/' + maybe_extract(svhn_test_filename)
-svhn_extra_folder = 'svhn_data/' + maybe_extract(svhn_extra_filename)
+if skip_extract:
+    print('Skipping extract ...')
+    svhn_train_folder = 'svhn_data/train'
+    svhn_test_folder  = 'svhn_data/test'
+    svhn_extra_folder = 'svhn_data/extra'
+else:
+    svhn_train_folder = 'svhn_data/' + maybe_extract(svhn_train_filename)
+    svhn_test_folder  = 'svhn_data/' + maybe_extract(svhn_test_filename)
+    svhn_extra_folder = 'svhn_data/' + maybe_extract(svhn_extra_filename)
 
 def display_samples(data_folder, num_samples=1):
     for i in range(num_samples):
@@ -228,7 +241,9 @@ print('Success!')
 
 def generate_dataset(data, folder):
     dataset = np.ndarray([len(data),32,32,1], dtype='float32')
+    dataset_orig = np.ndarray([len(data),32,32,1], dtype='float32')
     labels = np.ones([len(data),6], dtype=int) * 10
+    bboxes = np.zeros([len(data),6], dtype='float32')
     for i in np.arange(len(data)):
         filename = data[i]['filename']
         fullname = os.path.join(folder, filename)
@@ -259,6 +274,16 @@ def generate_dataset(data, folder):
         im_left = int(np.floor(im_left - 0.1 * im_width))
         im_bottom = int(np.amin([np.ceil(im_top + 1.2 * im_height), im.size[1]]))
         im_right = int(np.amin([np.ceil(im_left + 1.2 * im_width), im.size[0]]))
+        bboxes[i,:] = [0, im_top, im_left, im_bottom, im_right, 0]
+
+        im_orig = im
+        im_orig = im_orig.resize((32, 32), Image.ANTIALIAS)        
+        im_orig = np.dot(np.array(im_orig, dtype='float32'), [[0.2989],[0.5870],[0.1140]])
+        mean = np.mean(im_orig, dtype='float32')
+        std = np.std(im_orig, dtype='float32', ddof=1)
+        if std < 1e-4: std = 1.
+        im_orig = (im_orig - mean) / std
+        dataset_orig[i,:,:,:] = im_orig[:,:,:]
 
         im = im.crop((im_left, im_top, im_right, im_bottom)).resize([32,32], Image.ANTIALIAS)
         im = np.dot(np.array(im, dtype='float32'), [[0.2989],[0.5870],[0.1140]])
@@ -268,24 +293,26 @@ def generate_dataset(data, folder):
         im = (im - mean) / std
         dataset[i,:,:,:] = im[:,:,:]
 
-    return dataset, labels
+    return dataset, dataset_orig, labels, bboxes
 
 print('Generating training dataset and labels...')
-train_dataset, train_labels = generate_dataset(train_data, svhn_train_folder)
-print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset.shape, train_labels.shape))
+train_dataset, train_dataset_orig, train_labels, train_bboxes = generate_dataset(train_data, svhn_train_folder)
+print('Success! \n Training set: {} \n Training orig set: {} \n Training labels: {} \n Training bboxes: {}'.format(train_dataset.shape, train_dataset_orig.shape, train_labels.shape, train_bboxes.shape))
 
 print('Generating testing dataset and labels...')
-test_dataset, test_labels = generate_dataset(test_data, svhn_test_folder)
-print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_labels.shape))
+test_dataset, test_dataset_orig, test_labels, test_bboxes = generate_dataset(test_data, svhn_test_folder)
+print('Success! \n Test set: {} \n Test orig set: {} \n Test labels: {} \n Test bboxes: {}'.format(test_dataset.shape, test_dataset_orig.shape, test_labels.shape, test_bboxes.shape))
 
 print('Generating extra dataset and labels...')
-extra_dataset, extra_labels = generate_dataset(extra_data, svhn_extra_folder)
-print('Success! \n Testing set: {} \n Testing labels: {}'.format(extra_dataset.shape, extra_labels.shape))
+extra_dataset, extra_dataset_orig, extra_labels, extra_bboxes = generate_dataset(extra_data, svhn_extra_folder)
+print('Success! \n Extra set: {} \n Extra orig set: {} \n Extra labels: {} \n Extra bboxes: {}'.format(extra_dataset.shape, extra_dataset_orig.shape, extra_labels.shape, extra_bboxes.shape))
 
 # Clean up data by deleting digits more than 5 (very few)
 print('Cleaning up training data...')
 train_dataset = np.delete(train_dataset, 29929, axis=0)
+train_dataset_orig = np.delete(train_dataset_orig, 29929, axis=0)
 train_labels = np.delete(train_labels, 29929, axis=0)
+train_bboxes = np.delete(train_bboxes, 29929, axis=0)
 print('Success!')
 
 #%%
@@ -311,13 +338,18 @@ random.shuffle(valid_index2)
 random.shuffle(train_index2)
 
 valid_dataset = np.concatenate((extra_dataset[valid_index2,:,:,:], train_dataset[valid_index,:,:,:]), axis=0)
+valid_dataset_orig = np.concatenate((extra_dataset_orig[valid_index2,:,:,:], train_dataset_orig[valid_index,:,:,:]), axis=0)
 valid_labels = np.concatenate((extra_labels[valid_index2,:], train_labels[valid_index,:]), axis=0)
-train_dataset_new = np.concatenate((extra_dataset[train_index2,:,:,:], train_dataset[train_index,:,:,:]), axis=0)
-train_labels_new = np.concatenate((extra_labels[train_index2,:], train_labels[train_index,:]), axis=0)
+valid_bboxes = np.concatenate((extra_bboxes[valid_index2,:], train_bboxes[valid_index,:]), axis=0)
 
-print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset_new.shape, train_labels_new.shape))
-print('Success! \n Validation set: {} \n Validation labels: {}'.format(valid_dataset.shape, valid_labels.shape))
-print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_labels.shape))
+train_dataset_new = np.concatenate((extra_dataset[train_index2,:,:,:], train_dataset[train_index,:,:,:]), axis=0)
+train_dataset_orig_new = np.concatenate((extra_dataset_orig[train_index2,:,:,:], train_dataset_orig[train_index,:,:,:]), axis=0)
+train_labels_new = np.concatenate((extra_labels[train_index2,:], train_labels[train_index,:]), axis=0)
+train_bboxes_new = np.concatenate((extra_bboxes[train_index2,:], train_bboxes[train_index,:]), axis=0)
+
+print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset_new.shape, train_dataset_orig_new.shape, train_labels_new.shape, train_bboxes_new.shape))
+print('Success! \n Validation set: {} \n Validation labels: {}'.format(valid_dataset.shape, valid_labels.shape, valid_bboxes.shape))
+print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_labels.shape, test_bboxes.shape))
 
 #%%
 
@@ -329,11 +361,17 @@ try:
     f = open(pickle_file, 'wb')
     save = {
         'train_dataset': train_dataset,
+        'train_dataset_orig': train_dataset_orig,
         'train_labels': train_labels,
+        'train_bboxes': train_bboxes,
         'valid_dataset': valid_dataset,
+        'valid_dataset_orig': valid_dataset_orig,
         'valid_labels': valid_labels,
+        'valid_bboxes': valid_bboxes,
         'test_dataset': test_dataset,
+        'test_dataset_orig': test_dataset_orig,
         'test_labels': test_labels,
+        'test_bboxes': test_bboxes,
         }
     pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
     f.close()
