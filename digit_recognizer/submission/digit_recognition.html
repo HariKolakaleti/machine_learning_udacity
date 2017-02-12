@@ -13364,12 +13364,47 @@ Graph done!
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
+<p><strong> Following are the steps involved in building a digit recognition model </strong></p>
 <ul>
 <li>Step1: Create synthetic data by concatenating up to 5 digits from MNIST dataset</li>
 <li>Step2: Create pickle file with train, validation, and test samples</li>
 <li>Step3: Load pickle files and display sample data for sanity</li>
 <li>Step4: Use Tensor flow to create a CNN and train the model and compute validation accuracy</li>
 <li>Step5: Run the model on test set and compute accuracy</li>
+</ul>
+<p><strong> Choice of implementation: Tensorflow VS Keras/Theano </strong></p>
+<ul>
+<li>I implemented the first version of the model using Keras/Theano, I quickly got stuck with trying to debug the model, at which point I realized there is not a lot of support on the web since most people are now using Tensorflow</li>
+<li>First I did these tutorials for classifying multi digit MNIST from tensorflow.org. There is also interesting insigths from PythonProgramming<ul>
+<li><strong>Tensorflow.org</strong>: MNIST for ML Begineers: <a href="https://www.tensorflow.org/tutorials/mnist/beginners/">https://www.tensorflow.org/tutorials/mnist/beginners/</a></li>
+<li><strong>Tensorflow.org</strong>: Deep MNIST for Experts: <a href="https://www.tensorflow.org/tutorials/mnist/pros/">https://www.tensorflow.org/tutorials/mnist/pros/</a></li>
+<li><strong>PythonProgramming.net</strong>: CNN TensorFlow tutorial: <a href="https://pythonprogramming.net/cnn-tensorflow-convolutional-nerual-network-machine-learning-tutorial/">https://pythonprogramming.net/cnn-tensorflow-convolutional-nerual-network-machine-learning-tutorial/</a></li>
+</ul>
+</li>
+</ul>
+<p><strong> Choice of model selection: CNN vs DNN vs SVM </strong></p>
+<ul>
+<li>Researched a number of image classification models on the web. All image classification models today use deep neural networks (specifically CNN). Altough it is possible to implement the mode using fully connected deep neural nets, or SVM, CNN's are most efficient for image classification</li>
+</ul>
+<p><strong> Choice of number of convolution layers: </strong></p>
+<ul>
+<li>3 layer convolution network seems to be the most common for small image classification (up to 32x32 image sizes). I did not try to use more convolution layers.</li>
+</ul>
+<p><strong> Choice of activation functions: </strong></p>
+<ul>
+<li>Research indicated RELU is the most commonly used activation fuction, I did not try using sigmoid or tanh</li>
+</ul>
+<p><strong> Chioce of patch, stride's for convolution and pooling layers; Choice of number of fully connected layers </strong></p>
+<ul>
+<li>The difficult part was determining the CONV and POOL layers stride, patches for MNIST concatenated dataset because of the rectilinear size of the images when concatenated (28 x 28 * 5)</li>
+<li>Used this reference below to select patch and strides for convolution and pooling layers. This is one of the best resources for determining number of hidden layers, size of strides and patches<ul>
+<li>CNN for Visual Recognition: <a href="http://cs231n.github.io/convolutional-networks/">http://cs231n.github.io/convolutional-networks/</a></li>
+</ul>
+</li>
+</ul>
+<p><strong> Reference models for implementation </strong></p>
+<ul>
+<li>Ritchie Ng: <a href="https://github.com/ritchieng/NumNum">https://github.com/ritchieng/NumNum</a></li>
 </ul>
 
 </div>
@@ -13427,9 +13462,30 @@ CNN Model Architecture for MNIST multi digit recognition implemented with Tensor
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
+<p><strong> How did you train your model? </strong></p>
 <ul>
-<li>Synthetic data by concatenating up to 5 digits from MNIST dataset. The generated data was used to train the model. Example synthetic images below</li>
+<li>Model was trained using synthetic data generated up to 5 digits from MNIST data set</li>
 </ul>
+<p>Please provide a detailed description of your process for generating synthetic data.</p>
+<p><strong> Steps involved in genrating synthetic data </strong></p>
+<ul>
+<li>Full code can be found in : load_mnist_data.py</li>
+<li>Download MNIST dataset and extract data (check size matches expected)</li>
+<li>Select a random number of digits to concatenate (random range 1 - 5 images)<ul>
+<li>num_rand = random.choice(range(1,6))</li>
+</ul>
+</li>
+<li>Select random images index to concatenate<ul>
+<li>rand_idx = random.sample(range(0, data.shape[0]), data.shape[0])</li>
+</ul>
+</li>
+<li>Use np.concatenate to concatenate data; use np.hstack to concatenate labels<ul>
+<li>ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],data[d],data[e]], axis=1)</li>
+<li>nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],labels[d],labels[e]])</li>
+</ul>
+</li>
+</ul>
+<p><strong> Examples of generated concatenated images </strong></p>
 
 </div>
 </div>
@@ -13688,15 +13744,6 @@ N8aYkPgXRM4ck876JdIAAAAASUVORK5CYII=
 <div class="text_cell_render border-box-sizing rendered_html">
 <h3 id="Implementation">Implementation<a class="anchor-link" href="#Implementation">&#182;</a></h3><p>Use the code cell (or multiple code cells, if necessary) to implement the first step of your project. Once you have completed your implementation and are satisfied with the results, be sure to thoroughly answer the questions that follow.</p>
 
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered">
-<div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Prepare-SVHN-data">Prepare SVHN data<a class="anchor-link" href="#Prepare-SVHN-data">&#182;</a></h3>
 </div>
 </div>
 </div>
@@ -14127,19 +14174,6 @@ Getting digit structure for extra data...
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="SVHN:-CNN-Model-to-detect-sequences-up-to-5-digits">SVHN: CNN Model to detect sequences up to 5 digits<a class="anchor-link" href="#SVHN:-CNN-Model-to-detect-sequences-up-to-5-digits">&#182;</a></h3><p>The code above is comaptible to run both SVHN and MNIST data by switching the below flags</p>
-
-<pre><code>svhn_en   = 1
-mnist_en  = 0</code></pre>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered">
-<div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
 <h3 id="Question-4">Question 4<a class="anchor-link" href="#Question-4">&#182;</a></h3><p><em>Describe how you set up the training and testing data for your model. How does the model perform on a realistic dataset?</em></p>
 
 </div>
@@ -14151,7 +14185,80 @@ mnist_en  = 0</code></pre>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
+<p><strong> Steps involved in generating SVHN data </strong></p>
+<ul>
+<li>Full code can be found in : load_svhn_data.py</li>
+<li>Download SVHN dataset and extract data (check size matches expected)</li>
+<li>There are 3 sets of data: Train, Test and Extra</li>
+<li>Extract localization details and labels<ul>
+<li>Extract bounding boxes from digitStruct['bbox']</li>
+<li>Extract labels boxes from digitStruct['name']</li>
+</ul>
+</li>
+<li>Calculate total bounding box for all digits</li>
+<li>Crop images per the new calculated bounding box covering all digits</li>
+<li>Use extra images to add more train and validation samples</li>
+<li>Pack and data to a PICKLE file: svhn_data/SVHN.pickle</li>
+</ul>
+<p><strong> Did you use the exact model you develop on the synthetic data on the SVHN? </strong></p>
 <p>The structure of the model is same for MNIST and SVHN data but there are some changes in CONV and POOL layer filter sizes given the input data is 28x140 for MNIST and 32x32 for SVHN.</p>
+<p>Comparison between MNIST and SVHN models. All the differences are to take in to account that MNIST model uses synthetic data created by concatenating 5 images of 28x28 size</p>
+<table>
+<thead><tr>
+<th>Layers</th>
+<th>MNIST Model</th>
+<th>SVHN Model  </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td> Input layer</td>
+<td>28 x (28 x 5)</td>
+<td>32 x 32   </td>
+</tr>
+<tr>
+<td> CONV1</td>
+<td>patch=3x15, stride=1x1</td>
+<td>patch=5x5, stride=1x1</td>
+</tr>
+<tr>
+<td> MAXPOOL1</td>
+<td>patch=2x2, stride=2x2</td>
+<td>patch=2x2, stride=2x2</td>
+</tr>
+<tr>
+<td> CONV2</td>
+<td>patch=4x20, stride=1x1</td>
+<td>patch=5x5, stride=1x1</td>
+</tr>
+<tr>
+<td> MAXPOOL2</td>
+<td>patch=2x2, stride=2x2</td>
+<td>patch=2x2, stride=2x2</td>
+</tr>
+<tr>
+<td> CONV2</td>
+<td>patch=5x22, stride=1x1</td>
+<td>patch=5x5, stride=1x1</td>
+</tr>
+<tr>
+<td> FC Layer</td>
+<td>64 Nodes</td>
+<td>64 Nodes </td>
+</tr>
+<tr>
+<td> Dropout</td>
+<td>0.1</td>
+<td>0.1</td>
+</tr>
+</tbody>
+</table>
+<p><strong> Equations to calculate size of output layers: </strong></p>
+<ul>
+<li>pool_out = [(width or height) - patch]/(stride) + 1 </li>
+<li>conv_out = [(width or height) - patch + 2 * pad]/(stride) + 1 </li>
+</ul>
+<p><strong> Steps for SVHN Model: </strong></p>
 <ul>
 <li>Step1: Used the bounding boxes and cropped the images to 32x32 pixels</li>
 <li>Step2: Split up the data in the training (33401), validation (5684) and test (13068) sets</li>
@@ -14175,7 +14282,10 @@ CNN Model Architecture for multi digit recognition implemented with TensorFlow
   relu2     [relu]
   drop_out  20 %
   fc        [nodes=64]
-  outputs   [y1,y2,y3,y4,y5]</code></pre>
+  outputs   [y1,y2,y3,y4,y5]
+
+</code></pre>
+<p>Please provide details of your preprocessing of the SVHN dataset.</p>
 
 </div>
 </div>
@@ -14196,7 +14306,47 @@ CNN Model Architecture for multi digit recognition implemented with TensorFlow
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
-<p>A number of model architectures and parameters were explored. Below are the changes that achieved good results:</p>
+<p><strong> Which optimizers did you try? Why did you settle on adagrad? Describe your randomization of biases.</strong></p>
+<p><strong> Choice of optimizer: </strong></p>
+<ul>
+<li>Initial trials were using SGD and later switched to AdaGrad. SGD seems to be doing a good job for single digit classification, AdaGrad outperforms SGD for multi-label classification. I am yet to understand why AdaGrad performs better for multi-label classification.</li>
+</ul>
+<p><strong> Choice of Initialization: </strong></p>
+<ul>
+<li>Final implementation uses Xavier Initialization. Initial implementation uses const (1.0) initialization for bias terms, randomizing biases improves model performace</li>
+</ul>
+<p><strong> What dropout rates did you try?  </strong></p>
+<ul>
+<li>Initial implementation used a drop rate of 50%. Later tried other rates and eventually finalized on 10% which gave best performance</li>
+</ul>
+<p><strong> What batch sizes and step sizes did you try? </strong></p>
+<ul>
+<li>Tried various combination of batch sizes &amp; step sizes</li>
+</ul>
+<table>
+<thead><tr>
+<th>Trial</th>
+<th>Batch Size</th>
+<th>Num Steps</th>
+<th>Comments </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>initial trials</td>
+<td>sizes 1 - 16</td>
+<td>steps 10000 - 60000</td>
+<td>Train/validation rates improve by increasing batch size</td>
+</tr>
+<tr>
+<td>Finalized values</td>
+<td>16</td>
+<td>60000</td>
+<td>Best performace with this combination</td>
+</tr>
+</tbody>
+</table>
+<p><strong> A number of model architectures and parameters were explored. Below are the changes that achieved good results: </strong></p>
 <ul>
 <li>Randomizing intial values for weights and biases. Initializing bias to 1 made it worse</li>
 <li>Adding drop out (10-20%) prior to fully connected layer. No drop out made it worse</li>
@@ -19834,14 +19984,12 @@ gP8HX+bHr28RAUQAAAAASUVORK5CYII=
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
+<p><strong> Did you do any preprocessing on your found images? </strong></p>
+<ul>
+<li>Images had to be resized to 32x32 pixel images. No other image processing was required</li>
+</ul>
 <p><strong> Are there any particular qualities of the image(s) that might make classification difficult? </strong></p>
 <p>Below are the test results. Some of the images are blurry and difficult to classify</p>
-<p>Test  1 : [ 5 10 10 10 10] [ 5 10 10 10 10]</p>
-<p>Test  2 : [ 1  2  9 10 10] [ 2  1  0 10 10]</p>
-<p>Test  3 : [ 3  1  7  4 10] [ 6 10 10 10 10]</p>
-<p>Test  4 : [ 9 10 10 10 10] [ 1 10 10 10 10]</p>
-<p>Test  5 : [ 1  1 10 10 10] [ 1  1 10 10 10]</p>
-<p><strong> Test accuracy: 68.0% </strong></p>
 
 </div>
 </div>
@@ -19862,10 +20010,53 @@ gP8HX+bHr28RAUQAAAAASUVORK5CYII=
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><strong>Answer:</strong></p>
-<p>The model performs reasonably well on few test images. In general it is difficult to classify 4,5 digit pictures because of 32x32 pic size which is very blurry. The model will perform well on 64x64 or 128x128 pixel inputs but is computationally expensive</p>
+<p>The model performs reasonably well on few test images.</p>
 <blockquote><blockquote><p>submission/mydata.run.log</p>
 </blockquote>
 </blockquote>
+<p><strong> Please summarize what you find relevant from submission/mydata.run.log </strong></p>
+<p><strong> Test accuracy: 68.0% </strong></p>
+<table>
+<thead><tr>
+<th>Image</th>
+<th>Predicted Digit Sequence</th>
+<th>True Digit Sequence</th>
+<th>Comments </th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Image 1</td>
+<td>5 10 10 10 10</td>
+<td>5 10 10 10 10</td>
+<td>Correct</td>
+</tr>
+<tr>
+<td>Image 2</td>
+<td>1 2   9 10 10</td>
+<td>2  1  0 10 10</td>
+<td>Image was blurry, couldnt predict well</td>
+</tr>
+<tr>
+<td>Image 3</td>
+<td>5 10 10 10 10</td>
+<td>5 10 10 10 10</td>
+<td>Correct</td>
+</tr>
+<tr>
+<td>Image 4</td>
+<td>9 10 10 10 10</td>
+<td>1 10 10 10 10</td>
+<td>Confused 9 and 1 (blurry image)</td>
+</tr>
+<tr>
+<td>Image 4</td>
+<td>1 1  10 10 10</td>
+<td>1 1  10 10 10</td>
+<td>Correct</td>
+</tr>
+</tbody>
+</table>
 
 </div>
 </div>
@@ -28823,6 +29014,8 @@ BwKBQCCwAfg/BmzuwOZeEosAAAAASUVORK5CYII=
 </ul>
 <p><strong> Do your classification results change at all with localization included? </strong></p>
 <ul>
+<li><p>No the classification result does not change with localization included</p>
+</li>
 <li><p>The model can only do classification or regression/localization for a given run. The selection is based on certain variables being defined</p>
 </li>
 <li><p>The model used for classification and localization is same until the point of dense layer (fully connected layer) beyond which the classification uses softmax (5 digits x 10 outputs per digit) where as localization is a regression prediction model which predicts 4 outputs (the 4 four corners of the bounding box).</p>
